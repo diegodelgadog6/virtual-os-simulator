@@ -1,5 +1,6 @@
 from vos.core.sys import Kernel
 from vos.core.demo_tasks import shell_prog
+from vos.core.process import State  # <--- ESTE IMPORT FALTABA
 
 kernel = Kernel()
 
@@ -12,7 +13,12 @@ while True:
     print(f"\nps: {kernel.ps()}")
     kernel.dispatch()
 
-    # Condición de salida: no queda ningún proceso vivo
+    # Si ya no hay procesos en absoluto
+    if not kernel.procs:
+        print("\n[Kernel] No more processes. Halting.")
+        break
+
+    # O si todos están TERMINATED
     if all(p.state == State.TERMINATED for p in kernel.procs.values()):
         print("\n[Kernel] No more processes. Halting.")
         break
