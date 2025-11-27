@@ -1,29 +1,29 @@
 import os
 from typing import Dict, List, Tuple, Optional
 
-from vos.core.sched import RoundRobinScheduler
-from vos.core.process import PCB, State
+from .sched import RoundRobinScheduler
+from .process import PCB, State
 
 
 class Kernel:
     def __init__(self):
         self.sched = RoundRobinScheduler()
         self.procs: Dict[int, PCB] = {}
-        self.pid_counter: int = 1
+        self.pid_counter: int = 0
         self.running: Optional[PCB] = None
 
-        # “current working directory” del sistema simulado
+        # Directorio de trabajo del “SO”
         self.cwd: str = os.getcwd()
 
-    # ------------ Manejo de procesos (Lab 2) ------------
+    # ------------ Manejo de procesos ------------
 
     def spawn(self, prog, name: str = "proc") -> PCB:
         pid = self.pid_counter
         pcb = PCB(pid=pid, prog=prog, name=name)
-        pcb.state = State.READY
+        pcb.state = State.NEW
         self.procs[pid] = pcb
-        self.sched.add(pcb)
         self.pid_counter += 1
+        self.sched.add(pcb)
         print(f"[Spawn] Created process {pid} ({name})")
         return pcb
 
@@ -34,7 +34,8 @@ class Kernel:
             self.sched.add(self.running)
 
         pcb = self.sched.next()
-        # Saltar procesos que ya estén TERMINATED (por kill_sys)
+
+        # Saltar procesos TERMINATED
         while pcb is not None and pcb.state == State.TERMINATED:
             pcb = self.sched.next()
 
@@ -51,7 +52,14 @@ class Kernel:
         pcb.prog(self, pcb)
 
     def ps(self) -> List[Tuple[int, str]]:
-        return [(p.pid, p.state.name) for p in self.procs.values()]
+        """
+        Tabla de procesos SIN los TERMINATED (solo activos).
+        """
+        return [
+            (p.pid, p.state.name)
+            for p in self.procs.values()
+            if p.state != State.TERMINATED
+        ]
 
     # ------------ Syscalls Procs / VM ------------
 
@@ -73,6 +81,7 @@ class Kernel:
         print(f"[write_vm_sys] pid={pid} vaddr={vaddr} value={value}")
 
     def ps_sys(self) -> List[Tuple[int, str]]:
+        """Syscall ps: imprime y devuelve solo procesos activos (no TERMINATED)."""
         table = self.ps()
         print("[ps_sys]")
         for pid, state in table:
@@ -80,6 +89,7 @@ class Kernel:
         return table
 
     def kill_sys(self, pid: int) -> None:
+        """Marcar un proceso como TERMINATED (simula kill)."""
         pcb = self.procs.get(pid)
         if pcb is None:
             print(f"[kill_sys] PID {pid} not found")
