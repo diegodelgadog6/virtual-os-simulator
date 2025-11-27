@@ -51,8 +51,12 @@ def shell_prog(kernel, pcb):
     # Inicializar estado si es la primera vez
     if not hasattr(pcb, "depth"):
         pcb.depth = 0
-        pcb.child_shell = None  # Para manejar subshells
+        pcb.child_shell = None
         print(f"\n[Shell {pcb.pid}] Started (depth={pcb.depth})")
+    
+    # Asegurar que child_shell siempre exista (por si acaso)
+    if not hasattr(pcb, "child_shell"):
+        pcb.child_shell = None
     
     # Si hay un subshell activo, no hacer nada (el hijo se ejecuta)
     if pcb.child_shell and pcb.child_shell.state != State.TERMINATED:
