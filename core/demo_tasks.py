@@ -41,145 +41,134 @@ def idle_prog(kernel, pcb):
 
 def shell_prog(kernel, pcb):
     """
-    Shell interactivo mejorado para Lab 3.
+    Shell interactivo COOPERATIVO para Lab 2 & Lab 3.
     
-    Soporta:
-    - ps, kill, vmtest, idle (comandos de procesos)
-    - ls, cd, touch, cat (comandos de filesystem)
-    - shell (crear subshell)
-    - exit (salir del shell actual)
-    
-    IMPORTANTE: Este shell usa un bucle while True que bloquea
-    el dispatch hasta que el usuario escribe 'exit'. Esto es
-    aceptable para Lab 3 según las instrucciones.
+    IMPORTANTE: Este shell NO tiene while True.
+    Se ejecuta UN COMANDO por cada dispatch() call.
+    Esto permite que otros procesos también se ejecuten.
     """
     
-    # Inicializar nivel de profundidad si es la primera vez
+    # Inicializar estado si es la primera vez
     if not hasattr(pcb, "depth"):
         pcb.depth = 0
+        pcb.child_shell = None  # Para manejar subshells
+        print(f"\n[Shell {pcb.pid}] Started (depth={pcb.depth})")
     
-    print(f"\n[Shell {pcb.pid}] Started (depth={pcb.depth})")
+    # Si hay un subshell activo, no hacer nada (el hijo se ejecuta)
+    if pcb.child_shell and pcb.child_shell.state != State.TERMINATED:
+        return
     
-    # Bucle principal del shell
-    while True:
-        # Mostrar prompt con PID y profundidad
-        prompt = f"vos[{pcb.pid}:{pcb.depth}]> "
-        
-        try:
-            line = input(prompt).strip()
-        except EOFError:
-            # Ctrl+D o fin de entrada
-            pcb.state = State.TERMINATED
-            print(f"\n[Shell {pcb.pid}] EOF detected, exiting.")
-            return
-        
-        # Línea vacía, continuar
-        if not line:
-            continue
-        
-        # Parsear comando y argumentos
-        parts = line.split()
-        cmd = parts[0]
-        args = parts[1:]
-        
-        # ========== COMANDOS DE PROCESOS ==========
-        
-        if cmd == "ps":
-            kernel.ps_sys()
-        
-        elif cmd == "vmtest":
-            kernel.spawn(touch_pages_prog, "vmtest")
-        
-        elif cmd == "idle":
-            kernel.spawn(idle_prog, "idle")
-        
-        elif cmd == "kill":
-            if not args:
-                print("usage: kill <pid>")
-            else:
-                try:
-                    pid = int(args[0])
-                    kernel.kill_sys(pid)
-                except ValueError:
-                    print("kill: pid must be an integer")
-        
-        elif cmd == "readvm":
-            if len(args) != 2:
-                print("usage: readvm <pid> <vaddr>")
-            else:
-                try:
-                    pid = int(args[0])
-                    vaddr = int(args[1])
-                    kernel.read_vm_sys(pid, vaddr)
-                except ValueError:
-                    print("readvm: pid and vaddr must be integers")
-        
-        elif cmd == "writevm":
-            if len(args) != 3:
-                print("usage: writevm <pid> <vaddr> <value>")
-            else:
-                try:
-                    pid = int(args[0])
-                    vaddr = int(args[1])
-                    value = int(args[2])
-                    kernel.write_vm_sys(pid, vaddr, value)
-                except ValueError:
-                    print("writevm: pid, vaddr and value must be integers")
-        
-        # ========== COMANDOS DE FILESYSTEM ==========
-        
-        elif cmd == "ls":
-            path = args[0] if args else None
-            kernel.ls_sys(path)
-        
-        elif cmd == "cd":
-            if not args:
-                print("usage: cd <path>")
-            else:
-                kernel.cd_sys(args[0])
-        
-        elif cmd == "pwd":
-            print(f"cwd: {kernel.cwd}")
-        
-        elif cmd == "touch":
-            if not args:
-                print("usage: touch <filename>")
-            else:
-                kernel.touch_sys(args[0])
-        
-        elif cmd == "cat":
-            if not args:
-                print("usage: cat <filename>")
-            else:
-                kernel.cat_sys(args[0])
-        
-        # ========== COMANDOS DE SHELL ==========
-        
-        elif cmd == "shell":
-            # Crear un nuevo subshell
-            print(f"[Shell {pcb.pid}] Creating subshell...")
-            child_pcb = kernel.spawn(shell_prog, "shell")
-            # Incrementar profundidad para el hijo
-            child_pcb.depth = pcb.depth + 1
-            # IMPORTANTE: Llamar directamente al shell hijo (bloquea hasta que termine)
-            shell_prog(kernel, child_pcb)
-            # Cuando el hijo termina, volvemos aquí
-            print(f"[Shell {pcb.pid}] Subshell {child_pcb.pid} exited, returning to shell {pcb.pid}")
-        
-        elif cmd == "exit":
-            if pcb.depth > 0:
-                # Subshell: solo salir de este nivel
-                print(f"[Shell {pcb.pid}] Exiting subshell (depth={pcb.depth})")
-                pcb.state = State.TERMINATED
-                return
-            else:
-                # Shell raíz (depth=0): terminar completamente
-                print(f"[Shell {pcb.pid}] Exiting root shell")
-                pcb.state = State.TERMINATED
-                return
-        
-        elif cmd == "help":
-            print("""
+    # Si el subshell terminó, limpiarlo
+    if pcb.child_shell and pcb.child_shell.state == State.TERMINATED:
+        print(f"[Shell {pcb.pid}] Subshell {pcb.child_shell.pid} exited")
+        pcb.child_shell = None
+    
+    # Mostrar prompt y leer UN comando
+    prompt = f"vos[{pcb.pid}:{pcb.depth}]> "
+    
+    try:
+        line = input(prompt).strip()
+    except EOFError:
+        pcb.state = State.TERMINATED
+        print(f"\n[Shell {pcb.pid}] EOF detected, exiting.")
+        return
+    
+    # Línea vacía, no hacer nada este slice
+    if not line:
+        return
+    
+    # Parsear comando y argumentos
+    parts = line.split()
+    cmd = parts[0]
+    args = parts[1:]
+    
+    # ========== COMANDOS DE PROCESOS ==========
+    
+    if cmd == "ps":
+        kernel.ps_sys()
+    
+    elif cmd == "vmtest":
+        kernel.spawn(touch_pages_prog, "vmtest")
+    
+    elif cmd == "idle":
+        kernel.spawn(idle_prog, "idle")
+    
+    elif cmd == "kill":
+        if not args:
+            print("usage: kill <pid>")
+        else:
+            try:
+                pid = int(args[0])
+                kernel.kill_sys(pid)
+            except ValueError:
+                print("kill: pid must be an integer")
+    
+    elif cmd == "readvm":
+        if len(args) != 2:
+            print("usage: readvm <pid> <vaddr>")
+        else:
+            try:
+                pid = int(args[0])
+                vaddr = int(args[1])
+                kernel.read_vm_sys(pid, vaddr)
+            except ValueError:
+                print("readvm: pid and vaddr must be integers")
+    
+    elif cmd == "writevm":
+        if len(args) != 3:
+            print("usage: writevm <pid> <vaddr> <value>")
+        else:
+            try:
+                pid = int(args[0])
+                vaddr = int(args[1])
+                value = int(args[2])
+                kernel.write_vm_sys(pid, vaddr, value)
+            except ValueError:
+                print("writevm: pid, vaddr and value must be integers")
+    
+    # ========== COMANDOS DE FILESYSTEM ==========
+    
+    elif cmd == "ls":
+        path = args[0] if args else None
+        kernel.ls_sys(path)
+    
+    elif cmd == "cd":
+        if not args:
+            print("usage: cd <path>")
+        else:
+            kernel.cd_sys(args[0])
+    
+    elif cmd == "pwd":
+        print(f"cwd: {kernel.cwd}")
+    
+    elif cmd == "touch":
+        if not args:
+            print("usage: touch <filename>")
+        else:
+            kernel.touch_sys(args[0])
+    
+    elif cmd == "cat":
+        if not args:
+            print("usage: cat <filename>")
+        else:
+            kernel.cat_sys(args[0])
+    
+    # ========== COMANDOS DE SHELL ==========
+    
+    elif cmd == "shell":
+        # Crear un nuevo subshell
+        print(f"[Shell {pcb.pid}] Creating subshell...")
+        child_pcb = kernel.spawn(shell_prog, "shell")
+        child_pcb.depth = pcb.depth + 1
+        pcb.child_shell = child_pcb
+        print(f"[Shell {pcb.pid}] Created subshell {child_pcb.pid}")
+    
+    elif cmd == "exit":
+        print(f"[Shell {pcb.pid}] Exiting (depth={pcb.depth})")
+        pcb.state = State.TERMINATED
+    
+    elif cmd == "help":
+        print("""
 Available commands:
   Process control:
     ps              - list all processes
@@ -199,7 +188,7 @@ Available commands:
     exit            - exit current shell
     help            - show this message
 """)
-        
-        else:
-            print(f"Unknown command: {cmd}")
-            print("Type 'help' for available commands")
+    
+    else:
+        print(f"Unknown command: {cmd}")
+        print("Type 'help' for available commands")
