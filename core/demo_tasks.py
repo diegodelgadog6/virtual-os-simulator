@@ -1,5 +1,5 @@
-from vos.core.process import State
-from vos.core.vm import PAGE_SIZE
+from .process import State
+from .vm import PAGE_SIZE
 
 
 def touch_pages_prog(kernel, pcb):
@@ -34,20 +34,25 @@ def idle_prog(kernel, pcb):
         print(f"[Idle {pcb.pid}] done.")
 
 
-# ---------- SHELL ----------
+# ---------- SHELL (único proceso con niveles anidados) ----------
 
 def shell_prog(kernel, pcb):
     """
     Shell sencillo que da acceso a las sys-calls del kernel.
-    Cada vez que el scheduler le da CPU, lee UN comando,
-    lo ejecuta y regresa (para respetar el round-robin).
+    SOLO hay un proceso shell; el comando `shell` entra a un nivel
+    anidado (subshell) dentro del mismo proceso, y `exit` sale de
+    ese nivel. Cuando la profundidad llega a 0 y vuelves a hacer
+    `exit`, el shell se termina.
     """
 
-    # Prompt
+    # Nivel de anidamiento del shell (0 = normal)
+    if not hasattr(pcb, "depth"):
+        pcb.depth = 0
+
+    prompt = f"vos[{pcb.pid}:{pcb.depth}]> "
     try:
-        line = input("vos> ").strip()
+        line = input(prompt).strip()
     except EOFError:
-        # Si por alguna razón no hay input, matar el shell
         pcb.state = State.TERMINATED
         print(f"[shell {pcb.pid}] EOF, exiting.")
         return
@@ -63,26 +68,15 @@ def shell_prog(kernel, pcb):
     # ---- Comandos sobre procesos / VM ----
 
     if cmd == "ps":
-        # ver procesos -> ps_sys
         kernel.ps_sys()
 
-    elif cmd == "spawn":
-        # spawn <prog>
-        if not args:
-            print("usage: spawn <touch|idle|shell>")
-        else:
-            which = args[0]
-            if which == "touch":
-                kernel.spawn(touch_pages_prog, "touch")
-            elif which == "idle":
-                kernel.spawn(idle_prog, "idle")
-            elif which == "shell":
-                kernel.spawn(shell_prog, "shell")
-            else:
-                print(f"spawn: unknown program '{which}'")
+    elif cmd == "vmtest":
+        kernel.spawn(touch_pages_prog, "vmtest")
+
+    elif cmd == "idle":
+        kernel.spawn(idle_prog, "idle")
 
     elif cmd == "kill":
-        # kill <pid>
         if not args:
             print("usage: kill <pid>")
         else:
@@ -93,7 +87,6 @@ def shell_prog(kernel, pcb):
                 print("kill: pid must be an integer")
 
     elif cmd == "readvm":
-        # readvm <pid> <vaddr>
         if len(args) != 2:
             print("usage: readvm <pid> <vaddr>")
         else:
@@ -105,7 +98,6 @@ def shell_prog(kernel, pcb):
                 print("readvm: pid and vaddr must be integers")
 
     elif cmd == "writevm":
-        # writevm <pid> <vaddr> <value>
         if len(args) != 3:
             print("usage: writevm <pid> <vaddr> <value>")
         else:
@@ -120,41 +112,40 @@ def shell_prog(kernel, pcb):
     # ---- Comandos de filesystem ----
 
     elif cmd == "ls":
-        # ls [path]
         path = args[0] if args else None
         kernel.ls_sys(path)
 
     elif cmd == "cd":
-        # cd <path>
         if not args:
             print("usage: cd <path>")
         else:
             kernel.cd_sys(args[0])
 
     elif cmd == "touch":
-        # touch <filename>
         if not args:
             print("usage: touch <filename>")
         else:
             kernel.touch_sys(args[0])
 
     elif cmd == "cat":
-        # cat <filename>
         if not args:
             print("usage: cat <filename>")
         else:
             kernel.cat_sys(args[0])
 
-    # ---- Comandos de shell ----
+    # ---- Comandos de shell (anidado) ----
 
     elif cmd == "shell":
-        # crea otro shell
-        kernel.spawn(shell_prog, "shell")
+        pcb.depth += 1
+        print(f"[shell {pcb.pid}] entering subshell (depth={pcb.depth})")
 
     elif cmd == "exit":
-        # termina este shell
-        pcb.state = State.TERMINATED
-        print(f"[shell {pcb.pid}] exit")
+        if pcb.depth > 0:
+            pcb.depth -= 1
+            print(f"[shell {pcb.pid}] exit subshell, depth={pcb.depth}")
+        else:
+            pcb.state = State.TERMINATED
+            print(f"[shell {pcb.pid}] exit")
 
     else:
         print(f"Unknown command: {cmd}")
