@@ -1,5 +1,5 @@
 from collections import deque
-from vos.core.process import PCB, State
+from .process import PCB, State
 
 class RoundRobinScheduler:
     def __init__(self):
