@@ -175,22 +175,24 @@ def shell_prog(kernel, pcb):
         print("""
 Available commands:
   Process control:
-    ps              - list all processes
-    kill <pid>      - terminate process
-    vmtest          - spawn memory test program
-    idle            - spawn idle program
+    ps                      - list all processes
+    kill <pid>              - terminate process
+    vmtest                  - spawn memory test program
+    idle                    - spawn idle program
+    readvm <pid> <vaddr>    - read byte from process memory
+    writevm <pid> <vaddr> <value> - write byte to process memory
     
   Filesystem:
-    ls [path]       - list directory
-    cd <path>       - change directory
-    pwd             - print working directory
-    touch <file>    - create empty file
-    cat <file>      - display file contents
+    ls [path]               - list directory
+    cd <path>               - change directory
+    pwd                     - print working directory
+    touch <file>            - create empty file
+    cat <file>              - display file contents
     
   Shell:
-    shell           - create new subshell
-    exit            - exit current shell
-    help            - show this message
+    shell                   - create new subshell
+    exit                    - exit current shell
+    help                    - show this message
 """)
     
     else:
