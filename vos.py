@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-"""
-VOS - Virtual Operating System
-Lab 2 & Lab 3 Combined
-
-Usage: python vos.py
-"""
-
 from core.sys import Kernel
 from core.demo_tasks import shell_prog
 from core.process import State
