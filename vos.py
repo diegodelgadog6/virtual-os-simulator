@@ -4,15 +4,6 @@ from core.process import State
 
 
 def main():
-    """
-    Punto de entrada principal del VOS.
-    
-    Implementa dispatch loop según Lab 2:
-    1. Crea el kernel
-    2. Spawna el shell inicial
-    3. Loop que llama dispatch() repetidamente
-    4. Los procesos se ejecutan slice por slice
-    """
     print("=" * 60)
     print("VOS - Virtual Operating System (Lab 2 & Lab 3)")
     print("=" * 60)
