@@ -40,13 +40,6 @@ def idle_prog(kernel, pcb):
 # ---------- SHELL MEJORADO (LAB 3) ----------
 
 def shell_prog(kernel, pcb):
-    """
-    Shell interactivo COOPERATIVO para Lab 2 & Lab 3.
-    
-    IMPORTANTE: Este shell NO tiene while True.
-    Se ejecuta UN COMANDO por cada dispatch() call.
-    Esto permite que otros procesos también se ejecuten.
-    """
     
     # Inicializar estado si es la primera vez
     if not hasattr(pcb, "depth"):
