@@ -41,7 +41,6 @@ def idle_prog(kernel, pcb):
 
 def shell_prog(kernel, pcb):
     
-    # Inicializar estado si es la primera vez
     if not hasattr(pcb, "depth"):
         pcb.depth = 0
         pcb.child_shell = None
