@@ -1,10 +1,7 @@
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Callable, TYPE_CHECKING
-from .vm import VM
-
-if TYPE_CHECKING:
-    from .sys import Kernel
+from typing import Callable
+from vos.core.vm import VM
 
 class State(Enum):
     NEW = auto()
