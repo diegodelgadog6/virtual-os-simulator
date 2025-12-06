@@ -1,0 +1,1 @@
+# Core VOS module

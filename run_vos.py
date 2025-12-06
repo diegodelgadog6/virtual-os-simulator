@@ -1,14 +1,24 @@
 from vos.core.sys import Kernel
-from vos.core.demo_tasks import touch_pages_prog, idle_prog
+from vos.core.demo_tasks import shell_prog
+from vos.core.process import State  # <--- ESTE IMPORT FALTABA
 
 kernel = Kernel()
 
-# Crear dos procesos con programas distintos
-kernel.spawn(touch_pages_prog, "touch")
-kernel.spawn(idle_prog, "idle")
+# Proceso inicial: un shell
+kernel.spawn(shell_prog, "shell")
 
-for step in range(10):
-    print(f"\n[Step {step:02}] ps: {kernel.ps()}")
+# Bucle principal del “sistema operativo”
+while True:
+    # Mostrar tabla de procesos antes de cada dispatch
+    print(f"\nps: {kernel.ps()}")
     kernel.dispatch()
 
-print("\n[Final state] ps:", kernel.ps())
+    # Si ya no hay procesos en absoluto
+    if not kernel.procs:
+        print("\n[Kernel] No more processes. Halting.")
+        break
+
+    # O si todos están TERMINATED
+    if all(p.state == State.TERMINATED for p in kernel.procs.values()):
+        print("\n[Kernel] No more processes. Halting.")
+        break
